@@ -1,0 +1,12 @@
+packages:
+  "framer-motion": "For smooth, terminal-like animations and transitions"
+  "clsx": "Utility for constructing className strings conditionally"
+  "tailwind-merge": "Utility function to efficiently merge Tailwind CSS classes"
+  "date-fns": "For formatting created dates of sources"
+  "use-debounce": "To debounce the search input for the fuzzy finder"
+
+images: []
+
+notes:
+  - "The app expects API endpoints at /api/sources and /api/search"
+  - "The design uses a hardcoded dark terminal theme for a professional developer tool feel"

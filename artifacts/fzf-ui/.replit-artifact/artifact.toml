@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "FZF Finder"
+version = "1.0.0"
+id = "artifacts/fzf-ui"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+localPort = 24476
+name = "web"
+paths = ["/"]
+
+[services.development]
+run = "pnpm --filter @workspace/fzf-ui run dev"
+
+[services.env]
+PORT = "24476"
+BASE_PATH = "/"
+
+[services.production]
+build = ["pnpm", "--filter", "@workspace/fzf-ui", "run", "build"]
+publicDir = "artifacts/fzf-ui/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"

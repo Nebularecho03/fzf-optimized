@@ -1,15 +1,18 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: FZF Finder API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: search
+    description: FZF search operations
+  - name: sources
+    description: Data source management
 paths:
   /healthz:
     get:
@@ -24,6 +27,73 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /search:
+    post:
+      operationId: fzfSearch
+      tags: [search]
+      summary: Fuzzy search using fzf
+      description: Run fzf on the specified source with the given query
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SearchRequest"
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResponse"
+
+  /sources:
+    get:
+      operationId: listSources
+      tags: [sources]
+      summary: List all available data sources
+      responses:
+        "200":
+          description: List of sources
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SourcesResponse"
+
+    post:
+      operationId: createSource
+      tags: [sources]
+      summary: Create a new data source
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSourceRequest"
+      responses:
+        "201":
+          description: Created source
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Source"
+
+  /sources/{id}:
+    delete:
+      operationId: deleteSource
+      tags: [sources]
+      summary: Delete a data source
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted successfully
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +104,100 @@ components:
       required:
         - status
 
+    SearchRequest:
+      type: object
+      properties:
+        query:
+          type: string
+          description: The fuzzy search query
+        sourceId:
+          type: integer
+          description: ID of the source to search in
+        limit:
+          type: integer
+          description: Max number of results to return
+          default: 50
+      required:
+        - query
+        - sourceId
+
+    SearchResult:
+      type: object
+      properties:
+        text:
+          type: string
+        score:
+          type: number
+        index:
+          type: integer
+      required:
+        - text
+        - score
+        - index
+
+    SearchResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchResult"
+        query:
+          type: string
+        total:
+          type: integer
+        elapsedMs:
+          type: number
+      required:
+        - results
+        - query
+        - total
+        - elapsedMs
+
+    Source:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        itemCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - itemCount
+        - createdAt
+
+    SourcesResponse:
+      type: object
+      properties:
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/Source"
+      required:
+        - sources
+
+    CreateSourceRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of the data source
+        description:
+          type: string
+          description: Optional description
+        items:
+          type: array
+          items:
+            type: string
+          description: Initial list of items to index
+      required:
+        - name
+        - items
