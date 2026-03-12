@@ -71,11 +71,33 @@ function Finder({ sources }) {
       .finally(() => setLoading(false));
   }, [debouncedQuery, sourceId]);
 
+  const [opened, setOpened] = useState(null);
+
+  const looksLikePath = (text) => /[/\\]/.test(text) && !text.startsWith("http");
+
   const copyItem = useCallback((text) => {
     navigator.clipboard.writeText(text).then(() => {
       setCopied(text);
       setTimeout(() => setCopied(null), 1500);
     });
+  }, []);
+
+  const openItem = useCallback((text) => {
+    fetch(`${API}/open`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filePath: text }),
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.ok) {
+          setOpened(text);
+          setTimeout(() => setOpened(null), 1500);
+        } else {
+          alert(`Could not open: ${d.error}`);
+        }
+      })
+      .catch(() => alert("Failed to reach server"));
   }, []);
 
   useEffect(() => {
@@ -95,10 +117,14 @@ function Finder({ sources }) {
       if (e.key === "Enter" && results[selectedIdx]) {
         copyItem(results[selectedIdx].text);
       }
+      if ((e.metaKey || e.ctrlKey) && e.key === "o" && results[selectedIdx]) {
+        e.preventDefault();
+        openItem(results[selectedIdx].text);
+      }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [results, selectedIdx, copyItem]);
+  }, [results, selectedIdx, copyItem, openItem]);
 
   useEffect(() => {
     if (listRef.current) {
@@ -152,7 +178,7 @@ function Finder({ sources }) {
                 <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
               </svg>
               <p>Enter a query to start fuzzy searching</p>
-              <p className="hint">↑↓ navigate · Enter copy · Ctrl+K focus</p>
+              <p className="hint">↑↓ navigate · Enter copy · Ctrl+O open · Ctrl+K focus</p>
             </div>
           ) : results.length === 0 && !loading ? (
             <div className="empty-state">
@@ -171,10 +197,22 @@ function Finder({ sources }) {
                   <span className="result-text">
                     <HighlightMatch text={r.text} query={debouncedQuery} />
                   </span>
-                  {copied === r.text && <span className="copied-badge">✓ copied</span>}
-                  {i === selectedIdx && copied !== r.text && (
-                    <span className="enter-hint">Enter to copy</span>
-                  )}
+                  <span className="result-actions" onClick={(e) => e.stopPropagation()}>
+                    {opened === r.text && <span className="opened-badge">✓ opened</span>}
+                    {copied === r.text && <span className="copied-badge">✓ copied</span>}
+                    {looksLikePath(r.text) && opened !== r.text && (
+                      <button
+                        className="open-btn"
+                        title="Open in file manager (Ctrl+O)"
+                        onClick={() => openItem(r.text)}
+                      >
+                        ⎋ open
+                      </button>
+                    )}
+                    {i === selectedIdx && copied !== r.text && opened !== r.text && (
+                      <span className="enter-hint">Enter to copy</span>
+                    )}
+                  </span>
                 </div>
               ))}
             </div>

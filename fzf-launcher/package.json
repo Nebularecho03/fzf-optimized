@@ -9,6 +9,8 @@
     "build:client": "cd client && npm install && npm run build",
     "setup": "npm install && node scripts/install-fzf.js && cd client && npm install && npm run build",
     "start": "node src/server.js",
+    "start:bg": "bash start-bg.sh",
+    "stop": "bash stop.sh",
     "dev": "node src/server.js"
   },
   "dependencies": {

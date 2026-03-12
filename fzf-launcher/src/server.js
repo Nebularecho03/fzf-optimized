@@ -116,6 +116,34 @@ app.post("/api/search", async (req, res) => {
   }
 });
 
+// Open a file or folder in the native OS file manager / default app
+app.post("/api/open", (req, res) => {
+  const { filePath } = req.body;
+  if (!filePath || typeof filePath !== "string") {
+    return res.status(400).json({ error: "filePath is required" });
+  }
+
+  const resolved = path.resolve(filePath);
+  if (!fs.existsSync(resolved)) {
+    return res.status(404).json({ error: `Path not found: ${resolved}` });
+  }
+
+  const { exec } = require("child_process");
+  let cmd;
+  if (process.platform === "win32") {
+    cmd = `explorer "${resolved}"`;
+  } else if (process.platform === "darwin") {
+    cmd = `open "${resolved}"`;
+  } else {
+    cmd = `xdg-open "${resolved}"`;
+  }
+
+  exec(cmd, (err) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ ok: true, opened: resolved });
+  });
+});
+
 // SPA fallback
 if (fs.existsSync(PUBLIC)) {
   app.get("*", (req, res) => {

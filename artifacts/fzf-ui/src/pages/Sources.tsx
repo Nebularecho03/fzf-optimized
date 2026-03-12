@@ -50,7 +50,8 @@ export default function Sources() {
     const paths: string[] = [];
     for (let i = 0; i < files.length; i++) {
       const f = files[i];
-      paths.push((f as any).webkitRelativePath || f.name);
+      const rel = (f as File & { webkitRelativePath?: string }).webkitRelativePath;
+      paths.push(rel || f.name);
     }
     paths.sort();
     const folderName = paths[0]?.split("/")[0] || "folder";
@@ -215,10 +216,15 @@ export default function Sources() {
                             : <span className="text-sm text-muted-foreground">Click to choose a folder</span>
                           }
                           <input
-                            ref={folderInputRef}
+                            ref={(el) => {
+                              (folderInputRef as React.MutableRefObject<HTMLInputElement | null>).current = el;
+                              if (el) {
+                                el.setAttribute("webkitdirectory", "");
+                                el.setAttribute("directory", "");
+                              }
+                            }}
                             type="file"
                             className="hidden"
-                            {...({ webkitdirectory: "", directory: "" } as any)}
                             onChange={handleFolderChange}
                           />
                         </label>

@@ -467,3 +467,37 @@
 }
 
 .checkbox-row input[type="checkbox"] { cursor: pointer; accent-color: var(--primary); }
+
+/* ── Result actions (open button) ──────────────────────────────────────────── */
+.result-item { position: relative; }
+
+.result-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.open-btn {
+  display: none;
+  background: rgba(0, 255, 136, 0.1);
+  border: 1px solid var(--primary);
+  color: var(--primary);
+  border-radius: 4px;
+  padding: 0.1rem 0.45rem;
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.open-btn:hover { background: rgba(0, 255, 136, 0.2); }
+
+.result-item.selected .open-btn,
+.result-item:hover .open-btn { display: inline-block; }
+
+.opened-badge {
+  font-size: 0.72rem;
+  color: #4ade80;
+  white-space: nowrap;
+}
