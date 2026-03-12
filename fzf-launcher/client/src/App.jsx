@@ -197,25 +197,78 @@ function Sources({ sources, onRefresh }) {
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
   const [text, setText] = useState("");
+  const [mode, setMode] = useState("paste"); // "paste" | "file" | "folder" | "path"
+  const [localPath, setLocalPath] = useState("");
+  const [recursive, setRecursive] = useState(true);
+  const [fileLabel, setFileLabel] = useState("");
   const [creating, setCreating] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState("");
 
+  const resetForm = () => {
+    setName(""); setDesc(""); setText(""); setMode("paste");
+    setLocalPath(""); setFileLabel(""); setError("");
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFileLabel(file.name);
+    if (!name) setName(file.name.replace(/\.[^.]+$/, ""));
+    const reader = new FileReader();
+    reader.onload = (ev) => setText(ev.target.result);
+    reader.readAsText(file);
+  };
+
+  const handleFolderChange = (e) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const paths = [];
+    for (let i = 0; i < files.length; i++) {
+      paths.push(files[i].webkitRelativePath || files[i].name);
+    }
+    paths.sort();
+    const folderName = paths[0]?.split("/")[0] || "folder";
+    setFileLabel(`${folderName}/ — ${paths.length} files`);
+    if (!name) setName(folderName);
+    setText(paths.join("\n"));
+  };
+
   const handleCreate = async (e) => {
     e.preventDefault();
-    if (!name.trim() || !text.trim()) return;
-    const items = text.split("\n").map((l) => l.trim()).filter(Boolean);
-    if (items.length === 0) return;
-    setCreating(true);
     setError("");
+    setCreating(true);
+
     try {
-      const res = await fetch(`${API}/sources`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), description: desc.trim() || undefined, items }),
-      });
-      if (!res.ok) throw new Error("Failed to create");
-      setName(""); setDesc(""); setText(""); setShowForm(false);
+      if (mode === "path") {
+        if (!localPath.trim() || !name.trim()) throw new Error("Name and path are required");
+        const res = await fetch(`${API}/sources/from-path`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            targetPath: localPath.trim(),
+            name: name.trim(),
+            description: desc.trim() || undefined,
+            recursive,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to create");
+      } else {
+        if (!name.trim() || !text.trim()) throw new Error("Name and items are required");
+        const items = text.split("\n").map((l) => l.trim()).filter(Boolean);
+        if (items.length === 0) throw new Error("No items found");
+        const res = await fetch(`${API}/sources`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: name.trim(), description: desc.trim() || undefined, items }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to create");
+      }
+
+      resetForm();
+      setShowForm(false);
       onRefresh();
     } catch (err) {
       setError(err.message);
@@ -230,11 +283,13 @@ function Sources({ sources, onRefresh }) {
     onRefresh();
   };
 
+  const itemCount = text.split("\n").filter((l) => l.trim()).length;
+
   return (
     <div className="sources-page">
       <div className="sources-header">
         <h2>Sources</h2>
-        <button className="btn-primary" onClick={() => setShowForm((p) => !p)}>
+        <button className="btn-primary" onClick={() => { setShowForm((p) => !p); if (showForm) resetForm(); }}>
           {showForm ? "Cancel" : "+ New Source"}
         </button>
       </div>
@@ -243,7 +298,7 @@ function Sources({ sources, onRefresh }) {
         <form className="source-form" onSubmit={handleCreate}>
           <input
             className="form-input"
-            placeholder="Source name (e.g. Git Commands)"
+            placeholder="Source name (e.g. My Project Files)"
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
@@ -254,21 +309,117 @@ function Sources({ sources, onRefresh }) {
             value={desc}
             onChange={(e) => setDesc(e.target.value)}
           />
-          <textarea
-            className="form-textarea"
-            placeholder={"One item per line:\ngit status\ngit log --oneline\ngit diff HEAD\n..."}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            rows={8}
-            required
-          />
+
+          <div className="mode-tabs">
+            {[
+              { id: "paste", label: "✏️ Paste" },
+              { id: "file",  label: "📄 File" },
+              { id: "folder", label: "📁 Folder" },
+              { id: "path",  label: "🖥️ Local Path" },
+            ].map(({ id, label }) => (
+              <button
+                key={id}
+                type="button"
+                className={`mode-tab ${mode === id ? "active" : ""}`}
+                onClick={() => { setMode(id); setText(""); setFileLabel(""); setError(""); }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {mode === "paste" && (
+            <textarea
+              className="form-textarea"
+              placeholder={"One item per line:\ngit status\ngit log --oneline\ngit diff HEAD\n..."}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              rows={8}
+              required
+            />
+          )}
+
+          {mode === "file" && (
+            <div className="file-drop-zone">
+              <label className="file-label-btn">
+                {fileLabel || "Click to choose a text file (.txt, .csv, .log, ...)"}
+                <input
+                  type="file"
+                  accept=".txt,.csv,.log,.tsv,.md,.json,.yaml,.yml,.sh,.conf,.ini,.env,.list"
+                  style={{ display: "none" }}
+                  onChange={handleFileChange}
+                />
+              </label>
+              {text && (
+                <textarea
+                  className="form-textarea preview-readonly"
+                  readOnly
+                  value={text}
+                  rows={5}
+                />
+              )}
+            </div>
+          )}
+
+          {mode === "folder" && (
+            <div className="file-drop-zone">
+              <label className="file-label-btn">
+                {fileLabel || "Click to choose a folder"}
+                <input
+                  type="file"
+                  webkitdirectory=""
+                  directory=""
+                  style={{ display: "none" }}
+                  onChange={handleFolderChange}
+                />
+              </label>
+              {text && (
+                <textarea
+                  className="form-textarea preview-readonly"
+                  readOnly
+                  value={text}
+                  rows={5}
+                />
+              )}
+            </div>
+          )}
+
+          {mode === "path" && (
+            <div className="path-mode">
+              <p className="path-hint">
+                Enter a local file or folder path. The server will read it directly from your filesystem.
+              </p>
+              <input
+                className="form-input"
+                placeholder={process.platform === "win32" ? "C:\\Users\\you\\projects\\myapp" : "/home/you/projects/myapp"}
+                value={localPath}
+                onChange={(e) => setLocalPath(e.target.value)}
+                required
+              />
+              <label className="checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={recursive}
+                  onChange={(e) => setRecursive(e.target.checked)}
+                />
+                Recurse into subdirectories
+              </label>
+            </div>
+          )}
+
           {error && <p className="form-error">{error}</p>}
+
           <div className="form-row">
             <span className="item-preview">
-              {text ? `${text.split("\n").filter((l) => l.trim()).length} items` : ""}
+              {mode !== "path" && itemCount > 0 ? `${itemCount} items` : ""}
+              {mode === "path" && localPath ? `→ ${localPath}` : ""}
             </span>
-            <button className="btn-primary" type="submit" disabled={creating}>
-              {creating ? "Creating..." : "Create Source"}
+            <button
+              className="btn-primary"
+              type="submit"
+              disabled={creating || (mode !== "path" && itemCount === 0 && !localPath)}
+            >
+              {creating ? "Importing..." : "Create Source"}
             </button>
           </div>
         </form>

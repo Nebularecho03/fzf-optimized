@@ -40,6 +40,55 @@ app.post("/api/sources", (req, res) => {
   res.status(201).json(source);
 });
 
+// Import from local file or folder path
+app.post("/api/sources/from-path", (req, res) => {
+  const { targetPath, name, description, recursive } = req.body;
+  if (!targetPath || !name) {
+    return res.status(400).json({ error: "targetPath and name are required" });
+  }
+
+  const resolved = path.resolve(targetPath);
+  if (!fs.existsSync(resolved)) {
+    return res.status(400).json({ error: `Path not found: ${resolved}` });
+  }
+
+  const stat = fs.statSync(resolved);
+  let items = [];
+
+  if (stat.isFile()) {
+    const content = fs.readFileSync(resolved, "utf8");
+    items = content.split("\n").map(l => l.trim()).filter(Boolean);
+  } else if (stat.isDirectory()) {
+    items = walkDir(resolved, resolved, recursive !== false);
+    items.sort();
+  } else {
+    return res.status(400).json({ error: "Path must be a file or directory" });
+  }
+
+  if (items.length === 0) {
+    return res.status(400).json({ error: "No items found at that path" });
+  }
+
+  const source = db.createSource(name, description || null, items);
+  res.status(201).json(source);
+});
+
+function walkDir(base, dir, recursive) {
+  let results = [];
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    if (entry.name.startsWith(".")) continue;
+    const full = path.join(dir, entry.name);
+    const rel = path.relative(base, full);
+    if (entry.isDirectory()) {
+      if (recursive) results = results.concat(walkDir(base, full, true));
+    } else {
+      results.push(rel);
+    }
+  }
+  return results;
+}
+
 app.delete("/api/sources/:id", (req, res) => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
