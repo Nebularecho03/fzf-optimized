@@ -281,7 +281,14 @@
 }
 
 .match-count { color: var(--primary); opacity: 0.8; }
-.elapsed { margin-left: auto; }
+.selected-path {
+  margin-left: auto;
+  max-width: 50%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.elapsed { margin-left: 0; white-space: nowrap; }
 
 /* Sources page */
 .sources-page {
@@ -360,6 +367,25 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.form-options {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.form-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.8rem;
+  color: var(--text2);
+}
+
+.form-checkbox input {
+  accent-color: var(--primary);
 }
 
 .item-preview { font-size: 0.8rem; color: var(--text2); }

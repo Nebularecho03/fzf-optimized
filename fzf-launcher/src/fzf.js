@@ -5,6 +5,8 @@ const fs = require("fs");
 // Look for fzf binary: first in ./bin/ (bundled), then in PATH
 function getFzfBinary() {
   const ext = process.platform === "win32" ? ".exe" : "";
+  const distBin = path.join(path.dirname(process.execPath), "bin", `fzf${ext}`);
+  if (fs.existsSync(distBin)) return distBin;
   const local = path.join(__dirname, "..", "bin", `fzf${ext}`);
   if (fs.existsSync(local)) return local;
   return `fzf${ext}`;

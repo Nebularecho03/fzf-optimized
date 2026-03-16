@@ -41,6 +41,7 @@ function Finder({ sources }) {
   const inputRef = useRef(null);
   const listRef = useRef(null);
   const debouncedQuery = useDebounce(query, 80);
+  const selected = results[selectedIdx];
 
   useEffect(() => {
     if (sources.length > 0 && sourceId === null) {
@@ -168,7 +169,7 @@ function Finder({ sources }) {
                   onClick={() => copyItem(r.text)}
                 >
                   <span className="result-idx">{r.index}</span>
-                  <span className="result-text">
+                  <span className="result-text" title={r.text}>
                     <HighlightMatch text={r.text} query={debouncedQuery} />
                   </span>
                   {copied === r.text && <span className="copied-badge">✓ copied</span>}
@@ -184,6 +185,11 @@ function Finder({ sources }) {
         <div className="status-bar">
           <span>{activeSource?.item_count ?? 0} items in source</span>
           {debouncedQuery && <span className="match-count">{total} matches</span>}
+          {selected?.text && (
+            <span className="selected-path" title={selected.text}>
+              {selected.text}
+            </span>
+          )}
           {elapsedMs !== null && debouncedQuery && (
             <span className="elapsed">fzf · {elapsedMs.toFixed(1)}ms</span>
           )}
@@ -200,6 +206,15 @@ function Sources({ sources, onRefresh }) {
   const [creating, setCreating] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState("");
+  const [dirPath, setDirPath] = useState("");
+  const [dirName, setDirName] = useState("");
+  const [dirDesc, setDirDesc] = useState("");
+  const [includeFiles, setIncludeFiles] = useState(true);
+  const [includeDirs, setIncludeDirs] = useState(true);
+  const [includeHidden, setIncludeHidden] = useState(false);
+  const [creatingDir, setCreatingDir] = useState(false);
+  const [showDirForm, setShowDirForm] = useState(false);
+  const [dirError, setDirError] = useState("");
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -230,13 +245,60 @@ function Sources({ sources, onRefresh }) {
     onRefresh();
   };
 
+  const handleCreateDir = async (e) => {
+    e.preventDefault();
+    if (!dirPath.trim()) return;
+    if (!includeFiles && !includeDirs) {
+      setDirError("Select files or folders to index.");
+      return;
+    }
+    setCreatingDir(true);
+    setDirError("");
+    try {
+      const payload = {
+        dir: dirPath.trim(),
+        name: dirName.trim() || undefined,
+        description: dirDesc.trim() || undefined,
+        includeFiles,
+        includeDirs,
+        includeHidden,
+      };
+      const res = await fetch(`${API}/sources/dir`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to create directory source");
+      }
+      setDirPath("");
+      setDirName("");
+      setDirDesc("");
+      setIncludeFiles(true);
+      setIncludeDirs(true);
+      setIncludeHidden(false);
+      setShowDirForm(false);
+      onRefresh();
+    } catch (err) {
+      setDirError(err.message);
+    } finally {
+      setCreatingDir(false);
+    }
+  };
+
   return (
     <div className="sources-page">
       <div className="sources-header">
         <h2>Sources</h2>
-        <button className="btn-primary" onClick={() => setShowForm((p) => !p)}>
-          {showForm ? "Cancel" : "+ New Source"}
-        </button>
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          <button className="btn-primary" onClick={() => setShowForm((p) => !p)}>
+            {showForm ? "Cancel" : "+ New Source"}
+          </button>
+          <button className="btn-primary" onClick={() => setShowDirForm((p) => !p)}>
+            {showDirForm ? "Cancel" : "+ Add Directory"}
+          </button>
+        </div>
       </div>
 
       {showForm && (
@@ -269,6 +331,62 @@ function Sources({ sources, onRefresh }) {
             </span>
             <button className="btn-primary" type="submit" disabled={creating}>
               {creating ? "Creating..." : "Create Source"}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {showDirForm && (
+        <form className="source-form" onSubmit={handleCreateDir}>
+          <input
+            className="form-input"
+            placeholder="Directory path (e.g. /home/me/projects or C:\\Users\\me\\Documents)"
+            value={dirPath}
+            onChange={(e) => setDirPath(e.target.value)}
+            required
+          />
+          <input
+            className="form-input"
+            placeholder="Source name (optional)"
+            value={dirName}
+            onChange={(e) => setDirName(e.target.value)}
+          />
+          <input
+            className="form-input"
+            placeholder="Description (optional)"
+            value={dirDesc}
+            onChange={(e) => setDirDesc(e.target.value)}
+          />
+          <div className="form-options">
+            <label className="form-checkbox">
+              <input
+                type="checkbox"
+                checked={includeFiles}
+                onChange={(e) => setIncludeFiles(e.target.checked)}
+              />
+              Files
+            </label>
+            <label className="form-checkbox">
+              <input
+                type="checkbox"
+                checked={includeDirs}
+                onChange={(e) => setIncludeDirs(e.target.checked)}
+              />
+              Folders
+            </label>
+            <label className="form-checkbox">
+              <input
+                type="checkbox"
+                checked={includeHidden}
+                onChange={(e) => setIncludeHidden(e.target.checked)}
+              />
+              Include hidden
+            </label>
+          </div>
+          {dirError && <p className="form-error">{dirError}</p>}
+          <div className="form-row">
+            <button className="btn-primary" type="submit" disabled={creatingDir}>
+              {creatingDir ? "Indexing..." : "Create Directory Source"}
             </button>
           </div>
         </form>

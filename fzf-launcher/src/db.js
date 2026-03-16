@@ -6,7 +6,20 @@ const DATA_DIR = path.join(require("os").homedir(), ".fzf-launcher");
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const DB_PATH = path.join(DATA_DIR, "data.db");
-const db = new Database(DB_PATH);
+function resolveNativeBinding() {
+  if (!process.pkg) return null;
+  const platform = process.platform;
+  const arch = process.arch;
+  const platformKey = `${platform}-${arch}`;
+  const candidate = path.join(path.dirname(process.execPath), "native", platformKey, "better_sqlite3.node");
+  if (fs.existsSync(candidate)) return candidate;
+  return null;
+}
+
+const nativeBinding = resolveNativeBinding();
+const db = nativeBinding
+  ? new Database(DB_PATH, { nativeBinding })
+  : new Database(DB_PATH);
 
 db.pragma("journal_mode = WAL");
 db.pragma("synchronous = NORMAL");

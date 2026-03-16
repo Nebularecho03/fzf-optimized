@@ -4,12 +4,16 @@
   "description": "FZF-powered fuzzy finder with web UI — runs locally on Windows and Linux",
   "private": true,
   "type": "commonjs",
+  "bin": "src/server.js",
   "scripts": {
     "install:fzf": "node scripts/install-fzf.js",
     "build:client": "cd client && npm install && npm run build",
+    "download:fzf": "node scripts/download-fzf.js",
     "setup": "npm install && node scripts/install-fzf.js && cd client && npm install && npm run build",
     "start": "node src/server.js",
-    "dev": "node src/server.js"
+    "dev": "node src/server.js",
+    "build:standalone": "python3 scripts/build.py",
+    "build:dev": "python3 scripts/build.py"
   },
   "dependencies": {
     "better-sqlite3": "^11.0.0",
@@ -17,9 +21,20 @@
     "open": "^9.1.0"
   },
   "devDependencies": {
-    "node-fetch": "^3.3.2"
+    "adm-zip": "^0.5.16",
+    "node-fetch": "^3.3.2",
+    "pkg": "^5.8.1",
+    "tar": "^7.4.0"
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "pkg": {
+    "assets": [
+      "public/**/*"
+    ],
+    "scripts": [
+      "src/**/*.js"
+    ]
   }
 }
